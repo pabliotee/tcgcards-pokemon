@@ -111,7 +111,7 @@ body {
 }
 
 .hero-title .highlight {
-  color: #d97706;
+  color: var(--primary-color);
 }
 
 /* Barra de Busca Alinhada à Esquerda */
@@ -128,7 +128,7 @@ body {
 }
 
 .search-bar-hero:focus-within {
-  border-color: #d97706;
+  border-color: var(--primary-color);
 }
 
 .search-icon {
@@ -147,7 +147,7 @@ body {
 }
 
 .btn-search {
-  background-color: #d97706;
+  background-color: var(--primary-color);
   color: #ffffff;
   border: none;
   padding: 12px 24px;

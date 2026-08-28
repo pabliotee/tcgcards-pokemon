@@ -7,6 +7,7 @@ let buscaAtual = '';
 let cotacaoDolar = 5.0;
 let cartassAtuais = [];
 let totalCartasEncontradas = 0;
+let requestSeq = 0;
 
 const searchInput = document.getElementById('searchInput');
 const resultsContainer = document.getElementById('results');
@@ -43,8 +44,9 @@ async function buscarCotacaoDolar() {
     const res = await fetch(CURRENCY_API);
     if (!res.ok) throw new Error('Erro na resposta da moeda');
     const data = await res.json();
-    if (data.USDBRL && data.USDBRL.bid) {
-      cotacaoDolar = parseFloat(data.USDBRL.bid);
+    const bid = data.USDBRL && parseFloat(data.USDBRL.bid);
+    if (Number.isFinite(bid) && bid > 0) {
+      cotacaoDolar = bid;
     }
   } catch (err) {
     console.warn('Falha ao obter cotação do dólar. Usando taxa padrão:', err);
@@ -80,7 +82,7 @@ function normalizarTexto(texto) {
   return texto
     .normalize('NFD')
     .replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\w\s]/gi, '')
+    .replace(/[^\w\s'-]/gi, '')
     .trim();
 }
 
@@ -91,8 +93,8 @@ function construirQueryBusca(nome) {
   if (nome && nome.trim().length > 0) {
     const nomeLimpo = normalizarTexto(nome);
     if (nomeLimpo.length > 0) {
-      // name:pikachu sem aspas e sem asteriscos
-      queryParts.push(`name:${nomeLimpo}`);
+      // Entre aspas para que nomes com múltiplas palavras fiquem escopados ao campo name
+      queryParts.push(`name:"${nomeLimpo}"`);
     }
   }
 
@@ -115,11 +117,12 @@ function construirQueryBusca(nome) {
 
 async function buscarCartas(nome, pagina = 1) {
   mostrarCarregando();
+  const seq = ++requestSeq;
 
   try {
     const query = construirQueryBusca(nome);
     let url = `${API_URL}?page=${pagina}&pageSize=${PAGE_SIZE}`;
-    
+
     if (query && query.trim().length > 0) {
       url += `&q=${encodeURIComponent(query)}`;
     }
@@ -127,7 +130,7 @@ async function buscarCartas(nome, pagina = 1) {
     console.log('🔗 Solicitando ao backend:', url);
 
     const response = await fetch(url);
-    
+
     if (!response.ok) {
       const errorText = await response.text();
       console.error(`❌ Resposta de erro do servidor (${response.status}):`, errorText);
@@ -135,6 +138,9 @@ async function buscarCartas(nome, pagina = 1) {
     }
 
     const data = await response.json();
+
+    if (seq !== requestSeq) return; // uma requisição mais recente já está em andamento; descarta esta resposta obsoleta
+
     const cartas = data.data || [];
     totalCartasEncontradas = data.totalCount || cartas.length;
 
@@ -158,6 +164,7 @@ async function buscarCartas(nome, pagina = 1) {
     renderizarPaginacao(cartassAtuais.length);
 
   } catch (err) {
+    if (seq !== requestSeq) return;
     console.error('❌ Erro na comunicação Front-Back:', err);
     mostrarMensagemErro();
   }
@@ -207,9 +214,11 @@ function mostrarResultados(cartas) {
   resultsContainer.innerHTML = '';
 
   cartas.forEach(carta => {
-    const precoBrl = obterPrecoEmBrl(carta);
     const precoUsd = obterPrecoEmUsd(carta);
+    const precoBrl = precoUsd * cotacaoDolar;
     const imagem = carta.images?.small || '';
+    const nomeSeguro = escaparHtml(carta.name);
+    const colecaoSegura = escaparHtml(carta.set?.name || 'Coleção Desconhecida');
 
     const cardEl = document.createElement('div');
     cardEl.className = 'card-item';
@@ -236,9 +245,9 @@ function mostrarResultados(cartas) {
     });
 
     cardEl.innerHTML = `
-      <img src="${imagem}" alt="${carta.name}" loading="lazy">
-      <div class="card-title">${carta.name}</div>
-      <div class="card-set">${carta.set?.name || 'Coleção Desconhecida'}</div>
+      <img src="${imagem}" alt="${nomeSeguro}" loading="lazy">
+      <div class="card-title">${nomeSeguro}</div>
+      <div class="card-set">${colecaoSegura}</div>
       <div class="price-badge">R$ ${precoBrl.toFixed(2)}</div>
       <div class="price-usd">($ ${precoUsd.toFixed(2)} USD)</div>
     `;
@@ -265,11 +274,32 @@ function renderizarPaginacao(quantidadeRetornada) {
   }
 }
 
+function escaparHtml(texto) {
+  return String(texto ?? '')
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+function extrairPrecoUsd(valores) {
+  if (!valores) return null;
+  if (valores.market != null) return valores.market;
+  if (valores.mid != null) return valores.mid;
+  return null;
+}
+
 function obterPrecoEmUsd(carta) {
-  if (!carta.tcgplayer?.prices) return 0;
-  const prices = carta.tcgplayer.prices;
-  const tipoPreco = prices.holofoil || prices.normal || prices.reverseHolofoil || prices.unlimitedHolofoil;
-  return tipoPreco?.market || tipoPreco?.mid || 0;
+  const prices = carta.tcgplayer?.prices;
+  if (!prices) return 0;
+
+  const candidatos = [prices.holofoil, prices.normal, prices.reverseHolofoil, prices.unlimitedHolofoil];
+  for (const variante of candidatos) {
+    const preco = extrairPrecoUsd(variante);
+    if (preco != null) return preco;
+  }
+  return 0;
 }
 
 function obterPrecoEmBrl(carta) {
@@ -292,7 +322,7 @@ function abrirModal(carta) {
   if (imgEl) imgEl.src = carta.images?.large || carta.images?.small || '';
   if (nameEl) nameEl.innerText = carta.name;
   if (setEl) setEl.innerText = carta.set?.name || '-';
-  if (rarityEl) rarityEl.innerText = carta.rarity || 'Comum / N/A';
+  if (rarityEl) rarityEl.innerText = carta.rarity || '-';
   if (supertypeEl) supertypeEl.innerText = carta.supertype || '-';
   if (artistEl) artistEl.innerText = carta.artist || 'Desconhecido';
 
@@ -302,13 +332,13 @@ function abrirModal(carta) {
     if (carta.tcgplayer?.prices) {
       const prices = carta.tcgplayer.prices;
       for (const [variacao, valores] of Object.entries(prices)) {
-        const precoUsd = valores.market || valores.mid || 0;
+        const precoUsd = extrairPrecoUsd(valores) ?? 0;
         const precoBrl = precoUsd * cotacaoDolar;
 
         const row = document.createElement('div');
         row.className = 'price-row';
         row.innerHTML = `
-          <span><strong>${variacao.toUpperCase()}:</strong></span>
+          <span><strong>${escaparHtml(variacao.toUpperCase())}:</strong></span>
           <span>R$ ${precoBrl.toFixed(2)} ($ ${precoUsd.toFixed(2)})</span>
         `;
         detailsContainer.appendChild(row);
