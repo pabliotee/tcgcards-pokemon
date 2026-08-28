@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="pt-BR" data-theme="light">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title> Cards TCG </title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+  <!-- Cabeçalho Superior -->
+  <header class="site-header">
+    <div class="header-container">
+      <div class="brand-logo">🎴 Cards TCG </div>
+      <button id="themeToggle" class="btn-theme" onclick="alternarTema()">🌙 Tema Escuro</button>
+    </div>
+  </header>
+
+  <!-- Seção Hero Assimétrica -->
+  <section class="hero-section">
+    <div class="hero-container">
+      
+      <!-- Coluna da Esquerda: Título e Busca -->
+      <div class="hero-text-side">
+        <span class="hero-badge">Catálogo TCG Ilustrado</span>
+        <h1 class="hero-title">Encontre suas cartas <span class="highlight">Pokémon</span> favoritas</h1>
+        
+        <!-- Barra de Pesquisa -->
+        <div class="search-bar-hero">
+          <span class="search-icon">🔍</span>
+          <input type="text" id="searchInput" placeholder="Buscar por nome (ex: Charizard)...">
+          <button class="btn-search" onclick="mudarPagina(0)">Buscar</button>
+        </div>
+        
+        <div class="search-info">
+          <small class="search-example">Experimente buscar: Pikachu, Mewtwo, Gengar, Rayquaza...</small>
+          <p class="hero-footer-text">Base de dados atualizada com mais de 10.000+ cartas do TCG oficial.</p>
+        </div>
+      </div>
+
+      <!-- Coluna da Direita: Mural Dinâmico -->
+      <div class="hero-visual-side">
+        <div class="hero-card-stack">
+          <img src="https://images.pokemontcg.io/bw1/19_hires.png" alt="Emboar" class="floating-card stack-1">
+          <img src="https://images.pokemontcg.io/bw1/15_hires.png" alt="Pansear" class="floating-card stack-2">
+          <img src="https://images.pokemontcg.io/bw1/24_hires.png" alt="Darumaka" class="floating-card stack-3">
+          <img src="https://images.pokemontcg.io/bw1/1_hires.png" alt="Snivy" class="floating-card stack-4">
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  <!-- Conteúdo Principal e Filtros -->
+  <main class="main-container">
+    <section class="filters-section">
+      <div class="filters-grid">
+        <select id="filterRarity" onchange="aplicarFiltros()">
+          <option value="">Todas as Raridades</option>
+          <option value="Common">Comum</option>
+          <option value="Uncommon">Incomum</option>
+          <option value="Rare">Rara</option>
+          <option value="Rare Holo">Rara Holo</option>
+          <option value="Rare Ultra">Rara Ultra</option>
+          <option value="Rare Secret">Rara Secreta</option>
+        </select>
+
+        <select id="filterSupertype" onchange="aplicarFiltros()">
+          <option value="">Todos os Tipos</option>
+          <option value="Pokémon">Pokémon</option>
+          <option value="Trainer">Treinador</option>
+          <option value="Energy">Energia</option>
+        </select>
+
+        <select id="sortOrder" onchange="aplicarFiltros()">
+          <option value="">Ordenar por</option>
+          <option value="price-desc">Maior Preço (BRL)</option>
+          <option value="price-asc">Menor Preço (BRL)</option>
+        </select>
+      </div>
+    </section>
+
+    <!-- Grid de Resultados -->
+    <section id="results" class="cards-grid">
+      <!-- Conteúdo renderizado via JS -->
+    </section>
+
+    <!-- Paginação -->
+    <div id="paginationContainer" class="pagination-container" style="display: none;">
+      <button id="btnPrev" onclick="mudarPagina(-1)">Anterior</button>
+      <span id="pageInfo">Página 1</span>
+      <button id="btnNext" onclick="mudarPagina(1)">Próxima</button>
+    </div>
+  </main>
+
+  <!-- Modal para Zoom e Detalhes HD -->
+  <div id="cardModal" class="modal" onclick="fecharModal(event)">
+    <div class="modal-content">
+      <span class="close-modal" onclick="fecharModalForcado()">&times;</span>
+      <div class="modal-body">
+        <div class="modal-image-container">
+          <img id="modalCardImage" src="" alt="Carta em HD">
+        </div>
+        <div class="modal-details">
+          <h2 id="modalCardName">Nome do Pokémon</h2>
+          <p><strong>Coleção:</strong> <span id="modalCardSet">-</span></p>
+          <p><strong>Raridade:</strong> <span id="modalCardRarity">-</span></p>
+          <p><strong>Supertipo:</strong> <span id="modalCardSupertype">-</span></p>
+          <p><strong>Ilustrador:</strong> <span id="modalCardArtist">-</span></p>
+          
+          <hr>
+          <h3>Cotação do Mercado</h3>
+          <div id="modalPriceDetails" class="price-details-list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Rodapé -->
+  <footer class="site-footer">
+    <div class="footer-container">
+      <h3>Créditos & Fontes de Dados</h3>
+      <p>Este site é um projeto de fã sem fins lucrativos e não possui afiliação com a Nintendo ou The Pokémon Company.</p>
+      
+      <div class="footer-sources">
+        <div class="source-item">
+          <strong>🎴 Dados:</strong> <a href="https://pokemontcg.io/" target="_blank">Pokémon TCG API</a>
+        </div>
+        <div class="source-item">
+          <strong>💵 Preços:</strong> <a href="https://www.tcgplayer.com/" target="_blank">TCGplayer</a>
+        </div>
+        <div class="source-item">
+          <strong>💱 Cotação:</strong> <a href="https://docs.awesomeapi.com.br/api-de-moedas" target="_blank">AwesomeAPI</a>
+        </div>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/app.js"></script>
+</body>
+</html>
