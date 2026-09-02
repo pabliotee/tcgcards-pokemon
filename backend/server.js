@@ -3,6 +3,7 @@ require('dotenv').config();
 const express = require('express');
 const axios = require('axios');
 const path = require('path');
+const NodeCache = require('node-cache'); // 1. Importa a biblioteca de cache
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -13,6 +14,9 @@ const MAX_PAGE_SIZE = 250;
 const RATE_LIMIT_WINDOW_MS = 60 * 1000;
 const RATE_LIMIT_MAX_REQUESTS = 30;
 const requestTimestampsByIp = new Map();
+
+// 2. Configura o cache (stdTTL: 3600 segundos = 1 hora de validade na memória)
+const cache = new NodeCache({ stdTTL: 3600 });
 
 function estaLimitadoPorTaxa(ip) {
   const agora = Date.now();
@@ -52,6 +56,15 @@ app.get('/api/cards', async (req, res) => {
       params.q = String(q).trim();
     }
 
+    // 3. Cria uma chave de cache única baseada nos parâmetros da requisição (query, página e tamanho)
+    const cacheKey = `cards_q_${params.q || 'all'}_p_${parsedPage}_ps_${parsedPageSize}`;
+
+    // 4. Verifica se a resposta já está salva na memória
+    if (cache.has(cacheKey)) {
+      console.log(`⚡ [BACKEND] Retornando do CACHE para os parâmetros:`, params);
+      return res.json(cache.get(cacheKey)); // Responde instantaneamente sem bater na API externa!
+    }
+
     console.log('📡 [BACKEND] Consultando API Oficial:', params);
 
     const headers = {
@@ -68,6 +81,9 @@ app.get('/api/cards', async (req, res) => {
       headers,
       timeout: 15000 // 15 segundos de limite
     });
+
+    // 5. Salva os dados recebidos no cache antes de responder ao cliente
+    cache.set(cacheKey, apiResponse.data);
 
     res.json(apiResponse.data);
 
